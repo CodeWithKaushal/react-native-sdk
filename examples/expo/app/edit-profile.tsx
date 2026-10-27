@@ -5,15 +5,12 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEncatch } from '@encatch/react-native-sdk';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { usePageColors } from '@/components/TesterOnboarding';
+import { TesterScreen } from '@/components/TesterScreen';
 import {
   buildIdentifyTraits,
   splitDisplayName,
@@ -24,8 +21,7 @@ export default function EditProfileScreen() {
   const { username: usernameParam } = useLocalSearchParams<{ username?: string }>();
   const { userName, identifyUser, isIdentified, isInitialized } = useEncatch();
   const { getUser, updateUser } = useTestUsers();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const colors = usePageColors();
 
   const username = (usernameParam ?? userName ?? '').trim();
   const stored = username ? getUser(username) : undefined;
@@ -73,12 +69,9 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <TesterScreen bottomInset>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Identify user</Text>
-        <Text style={[styles.hint, { color: colors.tabIconDefault }]}>
+        <Text style={[styles.hint, { color: colors.muted }]}>
           Username cannot be changed. Email and display name are sent as $set traits.
         </Text>
 
@@ -87,7 +80,7 @@ export default function EditProfileScreen() {
           style={[
             styles.input,
             styles.inputReadOnly,
-            { color: colors.tabIconDefault, borderColor: colors.tabIconDefault },
+            { color: colors.muted, borderColor: colors.muted },
           ]}
           value={username}
           editable={false}
@@ -95,27 +88,29 @@ export default function EditProfileScreen() {
 
         <Text style={[styles.label, { color: colors.text }]}>$set — email</Text>
         <TextInput
-          style={[styles.input, { color: colors.text, borderColor: colors.tabIconDefault }]}
+          style={[styles.input, { color: colors.text, borderColor: colors.muted }]}
           placeholder="user@example.com"
-          placeholderTextColor={colors.tabIconDefault}
+          placeholderTextColor={colors.muted}
           value={email}
           onChangeText={setEmail}
-          autoCapitalize="none"
+          autoComplete="off"
+        importantForAutofill="no"
+        autoCapitalize="none"
           keyboardType="email-address"
         />
 
         <Text style={[styles.label, { color: colors.text }]}>$set — display_name</Text>
         <TextInput
-          style={[styles.input, { color: colors.text, borderColor: colors.tabIconDefault }]}
+          style={[styles.input, { color: colors.text, borderColor: colors.muted }]}
           placeholder="Test User"
-          placeholderTextColor={colors.tabIconDefault}
+          placeholderTextColor={colors.muted}
           value={displayName}
           onChangeText={setDisplayName}
         />
 
         {(firstName || lastName) && (
           <View style={styles.namePreview}>
-            <Text style={[styles.hint, { color: colors.tabIconDefault }]}>
+            <Text style={[styles.hint, { color: colors.muted }]}>
               First name: {firstName || '—'} · Last name: {lastName || '—'}
             </Text>
           </View>
@@ -133,8 +128,7 @@ export default function EditProfileScreen() {
             </Text>
           )}
         </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </TesterScreen>
   );
 }
 
@@ -165,7 +159,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    height: 44,
+    minHeight: 50,
+    paddingVertical: 12,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 14,
@@ -179,15 +174,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   button: {
-    height: 48,
-    backgroundColor: '#3B82F6',
+    minHeight: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#2457C6',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#2457C6',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -196,5 +193,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });

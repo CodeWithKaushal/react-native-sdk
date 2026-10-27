@@ -1,30 +1,10 @@
-import { Redirect, Stack } from 'expo-router';
-import { useEncatch } from '@encatch/react-native-sdk';
-import { useTesterSession } from '@/contexts/TesterSessionContext';
+import { Stack } from 'expo-router';
 
-function AuthLayoutWithEncatch() {
-  const { isInitialized, isIdentified } = useEncatch();
-
-  if (!isInitialized) return null;
-  if (isIdentified) return <Redirect href="/(tabs)" />;
-
+export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
+      <Stack.Screen name="test-user" />
     </Stack>
   );
-}
-
-export default function AuthLayout() {
-  const { isSdkReady } = useTesterSession();
-
-  if (!isSdkReady) {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-      </Stack>
-    );
-  }
-
-  return <AuthLayoutWithEncatch />;
 }

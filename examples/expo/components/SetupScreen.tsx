@@ -12,9 +12,11 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { EncatchConfig } from '@/constants/Config';
+import { resolveEnvironment, type EncatchEnvironment } from '@/constants/environments';
 import type { TesterSetupValues } from '@/contexts/TesterConfigContext';
 
 interface SetupScreenProps {
+  initialEnvironment?: EncatchEnvironment;
   initialApiKey?: string;
   initialFormId?: string;
   initialInterceptorFormId?: string;
@@ -25,6 +27,7 @@ export default function SetupScreen({
   initialApiKey = EncatchConfig.apiKey || '',
   initialFormId = EncatchConfig.formId,
   initialInterceptorFormId = '',
+  initialEnvironment,
   onContinue,
 }: SetupScreenProps) {
   const [apiKey, setApiKey] = useState(initialApiKey);
@@ -38,6 +41,7 @@ export default function SetupScreen({
   const handleContinue = () => {
     if (!canContinue) return;
     onContinue({
+      environment: resolveEnvironment(initialEnvironment),
       apiKey: apiKey.trim(),
       formId: formId.trim(),
       interceptorFormId: interceptorFormId.trim(),

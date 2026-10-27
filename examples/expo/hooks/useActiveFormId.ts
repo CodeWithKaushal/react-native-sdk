@@ -1,25 +1,16 @@
-import { useMemo, useState } from 'react';
-import { resolveSelectedFormId } from '@/constants/formIds';
+import { useMemo } from 'react';
 import { mergeEnvFormIds, useTesterConfig } from '@/contexts/TesterConfigContext';
 
-/** Resolves the active feedback configuration id from env suggestions + manual input. */
-export function useActiveFormId(initialOverride?: string) {
-  const { formId: defaultFormId } = useTesterConfig();
-  const suggestedIds = useMemo(() => mergeEnvFormIds(defaultFormId), [defaultFormId]);
-  const [manualFormId, setManualFormId] = useState(initialOverride ?? defaultFormId);
-  const [selectedFormId, setSelectedFormId] = useState(defaultFormId);
-
-  const activeFormId = useMemo(
-    () => resolveSelectedFormId(suggestedIds, selectedFormId || manualFormId || defaultFormId),
-    [defaultFormId, manualFormId, selectedFormId, suggestedIds]
-  );
-
+/** One shared ID for Home and Inline tabs. Empty input never falls back to a saved ID. */
+export function useActiveFormId() {
+  const { formId, setFormId } = useTesterConfig();
+  const suggestedIds = useMemo(() => mergeEnvFormIds(formId), [formId]);
   return {
     suggestedIds,
-    manualFormId,
-    setManualFormId,
-    selectedFormId,
-    setSelectedFormId,
-    activeFormId,
+    manualFormId: formId,
+    selectedFormId: formId,
+    setManualFormId: setFormId,
+    setSelectedFormId: setFormId,
+    activeFormId: formId.trim(),
   };
 }

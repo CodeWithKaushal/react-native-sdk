@@ -3,6 +3,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Text } from '@/components/Themed';
 
 type FormIdPickerProps = {
+  disabled?: boolean;
   formIds: readonly string[];
   value: string;
   onChange: (formId: string) => void;
@@ -16,6 +17,7 @@ type FormIdPickerProps = {
 };
 
 export function FormIdPicker({
+  disabled = false,
   formIds,
   value,
   onChange,
@@ -30,14 +32,17 @@ export function FormIdPicker({
       {formIds.length > 1 ? (
         <>
           <Text style={[styles.hint, { color: placeholderColor }]}>
-            Pick from EXPO_PUBLIC_ENCATCH_FORM_ID or edit below
+            Choose a saved ID or enter another below
           </Text>
           <View style={[styles.pickerWrap, { borderColor }]}>
             <Picker
-              selectedValue={value || formIds[0]}
+              accessibilityLabel="Saved form IDs"
+              enabled={!disabled}
+              selectedValue={value}
               onValueChange={(itemValue) => onChange(String(itemValue))}
               style={[styles.picker, { color: textColor }]}
               dropdownIconColor={textColor}>
+              {!formIds.includes(value) && <Picker.Item label={value || "Choose a form ID"} value={value} />}
               {formIds.map((id) => (
                 <Picker.Item key={id} label={id} value={id} />
               ))}
@@ -55,6 +60,10 @@ export function FormIdPicker({
         placeholderTextColor={placeholderColor}
         value={value}
         onChangeText={onChange}
+        accessibilityLabel={manualLabel}
+        editable={!disabled}
+        autoComplete="off"
+        importantForAutofill="no"
         autoCapitalize="none"
         autoCorrect={false}
       />
@@ -75,7 +84,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   input: {
-    height: 48,
+    minHeight: 50,
+    paddingVertical: 12,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 16,

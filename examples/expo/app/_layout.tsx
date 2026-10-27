@@ -18,6 +18,8 @@ import {
 } from '@/contexts/TesterConfigContext';
 import { TestUsersProvider } from '@/contexts/TestUsersContext';
 import { TesterSessionProvider } from '@/contexts/TesterSessionContext';
+import { TesterActivityProvider } from '@/contexts/TesterActivityContext';
+import { TesterActivityObserver } from '@/components/TesterActivityObserver';
 import { getEnvironmentEndpoints } from '@/constants/environments';
 
 export { ErrorBoundary } from 'expo-router';
@@ -143,7 +145,7 @@ function TesterAppShell({ setupValues }: { setupValues: TesterSetupValues }) {
   );
 
   const isSdkReady = setupValues.apiKey.trim().length > 0;
-  const shellKey = `${setupValues.apiKey}-${setupValues.environment}-${setupValues.formId}`;
+  const shellKey = `${setupValues.apiKey}-${setupValues.environment}-${setupValues.formId}-${setupValues.interceptorFormId}`;
 
   const addBlockedForm = useCallback((formTitle: string, formConfig: BlockedFormItem['formConfig']) => {
     setBlockedForms((prev) => [
@@ -218,10 +220,13 @@ function RootLayoutNav() {
   }
 
   return (
-    <TestUsersProvider>
-      <TesterSessionProvider initialSetup={setupValues} onSetupChange={handleSetupChange}>
-        <TesterAppShell key={setupValues.apiKey + setupValues.environment} setupValues={setupValues} />
-      </TesterSessionProvider>
-    </TestUsersProvider>
+    <TesterActivityProvider>
+      <TestUsersProvider>
+        <TesterSessionProvider initialSetup={setupValues} onSetupChange={handleSetupChange}>
+          <TesterActivityObserver />
+          <TesterAppShell key={setupValues.apiKey + setupValues.environment} setupValues={setupValues} />
+        </TesterSessionProvider>
+      </TestUsersProvider>
+    </TesterActivityProvider>
   );
 }

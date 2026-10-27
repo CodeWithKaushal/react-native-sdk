@@ -1,195 +1,89 @@
 import { useState } from 'react';
-import { StyleSheet, Pressable, ScrollView, TextInput, View } from 'react-native';
-import { Text } from '@/components/Themed';
-import { useEncatch } from '@encatch/react-native-sdk';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Action, Card, Field, usePageColors } from '@/components/TesterOnboarding';
+import { TesterScreen } from '@/components/TesterScreen';
+import { TesterActivityCard } from '@/components/TesterActivityCard';
+import { useTesterActivity } from '@/contexts/TesterActivityContext';
+import { useTrackingTester } from '@/hooks/useTrackingTester';
+import { useTesterSession } from '@/contexts/TesterSessionContext';
+import type { TrackingMethod } from '@/utils/testerActivity';
 
-const PRESET_EVENTS = [
-  { name: 'button_clicked', label: 'Button Clicked' },
-  { name: 'feature_used', label: 'Feature Used' },
-  { name: 'purchase_started', label: 'Purchase Started' },
-  { name: 'survey_viewed', label: 'Survey Viewed' },
-  { name: 'home_viewed', label: 'Home Viewed' },
+const MODES: { method: TrackingMethod; label: string; hint: string }[] = [
+  { method: 'trackEvent', label: 'Event', hint: 'Send an event name to test event targeting and automatic form triggers.' },
+  { method: 'trackScreen', label: 'Screen view', hint: 'Send a screen path without navigating. Expo Router also tracks actual navigation automatically.' },
 ];
-
-const PRESET_SCREENS = [
-  { name: '/home', label: 'Home' },
-  { name: '/dashboard', label: 'Dashboard' },
-  { name: '/settings', label: 'Settings' },
-  { name: '/dashboard/encatch-test', label: 'Encatch test' },
-];
+const PRESETS = {
+  trackEvent: ['button_clicked', 'feature_used', 'purchase_started', 'survey_viewed', 'home_viewed'],
+  trackScreen: ['/home', '/dashboard', '/settings', '/dashboard/encatch-test'],
+};
 
 export default function EventsScreen() {
-  const { trackEvent, trackScreen } = useEncatch();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
-  const [customEvent, setCustomEvent] = useState('test_event');
-  const [customScreen, setCustomScreen] = useState('/dashboard/encatch-test');
-
-  return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>trackEvent & trackScreen</Text>
-      <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
-        Fire preset or custom events and screen views.
-      </Text>
-
-      <View style={[styles.card, { borderColor: colors.tabIconDefault }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Preset events</Text>
-        {PRESET_EVENTS.map(({ name, label }) => (
-          <Pressable
-            key={name}
-            style={({ pressed }) => [styles.presetButton, pressed && styles.pressed]}
-            onPress={() => trackEvent(name)}>
-            <Text style={styles.presetButtonText}>{label}</Text>
-          </Pressable>
-        ))}
-
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>Custom event</Text>
-        <View style={styles.row}>
-          <TextInput
-            style={[
-              styles.input,
-              { color: colors.text, borderColor: colors.tabIconDefault, flex: 1 },
-            ]}
-            value={customEvent}
-            onChangeText={setCustomEvent}
-            placeholder="test_event"
-            placeholderTextColor={colors.tabIconDefault}
-            autoCapitalize="none"
-          />
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              !customEvent.trim() && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => customEvent.trim() && trackEvent(customEvent.trim())}
-            disabled={!customEvent.trim()}>
-            <Text style={styles.actionButtonText}>Fire</Text>
-          </Pressable>
-        </View>
+  const colors = usePageColors();
+  const { entries, sdkEntries } = useTesterActivity();
+  const { run, busy, isInitialized } = useTrackingTester();
+  const { isAnonymous, setupValues } = useTesterSession();
+  const [method, setMethod] = useState<TrackingMethod>('trackEvent');
+  const [eventName, setEventName] = useState('test_event');
+  const [screenName, setScreenName] = useState('/dashboard/encatch-test');
+  const value = method === 'trackEvent' ? eventName : screenName;
+  const change = method === 'trackEvent' ? setEventName : setScreenName;
+  const latest = entries.find((entry) => entry.method === 'trackEvent' || entry.method === 'trackScreen');
+  const send = (m = method, name = value) => { Keyboard.dismiss(); void run(m, name); };
+  return <TesterScreen contentStyle={styles.stack}>
+    <View style={styles.stack}>
+      <Text style={[styles.eyebrow, { color: colors.accent }]}>ENCATCH SDK TESTER</Text>
+      <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Test events & screens</Text>
+      <Text style={[styles.body, { color: colors.muted }]}>Choose a preset or enter a name, send the call, then review what happened.</Text>
+      <Text style={[styles.meta, { color: colors.accent }]}>{setupValues.environment.toUpperCase()} · {isAnonymous ? 'Anonymous session' : 'Identified session'}</Text>
+    </View>
+    <Card>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Send a test call</Text>
+      <View accessibilityRole="radiogroup" style={styles.row}>
+        {MODES.map((mode) => <Pressable key={mode.method} accessibilityRole="radio" accessibilityState={{ checked: mode.method === method, disabled: busy }} disabled={busy} onPress={() => setMethod(mode.method)}
+          style={[styles.mode, { borderColor: method === mode.method ? colors.accent : colors.border, backgroundColor: method === mode.method ? colors.selected : colors.surface }]}>
+          <Text style={[styles.modeText, { color: method === mode.method ? colors.accent : colors.muted }]}>{mode.label}</Text>
+        </Pressable>)}
       </View>
-
-      <View style={[styles.card, { borderColor: colors.tabIconDefault }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Preset screens</Text>
-        {PRESET_SCREENS.map(({ name, label }) => (
-          <Pressable
-            key={name}
-            style={({ pressed }) => [styles.presetButton, pressed && styles.pressed]}
-            onPress={() => trackScreen(name)}>
-            <Text style={styles.presetButtonText}>{label}</Text>
-            <Text style={styles.presetMeta}>{name}</Text>
-          </Pressable>
-        ))}
-
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>Custom screen</Text>
-        <View style={styles.row}>
-          <TextInput
-            style={[
-              styles.input,
-              { color: colors.text, borderColor: colors.tabIconDefault, flex: 1 },
-            ]}
-            value={customScreen}
-            onChangeText={setCustomScreen}
-            placeholder="/dashboard/encatch-test"
-            placeholderTextColor={colors.tabIconDefault}
-            autoCapitalize="none"
-          />
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              !customScreen.trim() && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => customScreen.trim() && trackScreen(customScreen.trim())}
-            disabled={!customScreen.trim()}>
-            <Text style={styles.actionButtonText}>Track</Text>
-          </Pressable>
-        </View>
+      <Text style={[styles.body, { color: colors.muted }]}>{MODES.find((mode) => mode.method === method)?.hint}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Quick presets · tap to fill</Text>
+      <View style={styles.presets}>
+        {PRESETS[method].map((name) => <Pressable key={name} accessibilityRole="button" accessibilityState={{ selected: value === name, disabled: busy }} accessibilityLabel={`Use ${name}`} disabled={busy} onPress={() => change(name)}
+          style={[styles.preset, { borderColor: value === name ? colors.accent : colors.border, backgroundColor: value === name ? colors.selected : colors.surface }]}>
+          <Text style={[styles.presetText, { color: value === name ? colors.accent : colors.text }]}>{name}</Text>
+        </Pressable>)}
       </View>
-    </ScrollView>
-  );
+      <Field label={method === 'trackEvent' ? 'Event name' : 'Screen path'} value={value} onChangeText={change} autoCapitalize="none" placeholder={method === 'trackEvent' ? 'e.g. button_clicked' : 'e.g. /dashboard'} editable={!busy} returnKeyType="done" onSubmitEditing={() => { if (!busy && value.trim()) send(); }} />
+      <Action title={busy ? 'Calling SDK…' : method === 'trackEvent' ? 'Send event' : 'Track screen'} onPress={() => send()} busy={busy} disabled={!value.trim() || !isInitialized} />
+      <Pressable accessibilityRole="button" disabled={busy || !value} onPress={() => change('')} style={styles.clear}><Text style={[styles.label, { color: colors.accent, opacity: busy || !value ? 0.4 : 1 }]}>Clear {method === 'trackEvent' ? 'event name' : 'screen path'}</Text></Pressable>
+      {!isInitialized && <Text style={[styles.body, { color: colors.warning }]}>Waiting for SDK initialization.</Text>}
+      <Text style={[styles.meta, { color: colors.muted }]}>These SDK methods accept a name only. Calls may trigger forms according to your project rules.</Text>
+    </Card>
+    <View style={styles.rowBetween}>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Latest action</Text>
+      <Pressable accessibilityRole="button" onPress={() => router.navigate('/(tabs)/activity')} style={styles.clear}><Text style={[styles.label, { color: colors.accent }]}>SDK logs ({sdkEntries.length})</Text></Pressable>
+    </View>
+    {latest ? <>
+      <TesterActivityCard entry={latest} />
+      <Action title="Repeat latest call" secondary disabled={busy || !isInitialized || !latest.method} onPress={() => { if (latest.method === 'trackEvent' || latest.method === 'trackScreen') send(latest.method, latest.name); }} />
+    </> : <Card><Text style={[styles.body, { color: colors.muted }]}>No test calls yet. Send an event or screen view to see its status here.</Text></Card>}
+    <Text style={[styles.meta, { color: colors.muted }]}>Call returned means the SDK method finished, not that the server received it. The Latest action tab shows actual SDK API requests and responses.</Text>
+  </TesterScreen>;
 }
-
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  presetButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  presetButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  presetMeta: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-  },
-  actionButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    height: 44,
-    justifyContent: 'center',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  stack: { gap: 16 },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
+  heading: { fontSize: 26, fontWeight: '700' },
+  title: { fontSize: 18, fontWeight: '700', flexShrink: 1 },
+  body: { fontSize: 14, lineHeight: 22 },
+  meta: { fontSize: 12, lineHeight: 19 },
+  label: { fontSize: 14, fontWeight: '600' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  rowBetween: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  mode: { flex: 1, minWidth: 100, minHeight: 48, padding: 12, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  modeText: { fontSize: 14, fontWeight: '700' },
+  presets: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  preset: { maxWidth: '100%', minHeight: 44, paddingHorizontal: 12, paddingVertical: 12, borderRadius: 10, borderWidth: 1, justifyContent: 'center' },
+  presetText: { fontSize: 13, flexShrink: 1 },
+  clear: { minHeight: 44, paddingVertical: 12, justifyContent: 'center' },
 });

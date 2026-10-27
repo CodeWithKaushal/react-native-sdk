@@ -1,142 +1,99 @@
-import { StyleSheet, Pressable, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Text, View } from '@/components/Themed';
 import { useEncatch } from '@encatch/react-native-sdk';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import { TesterScreen } from '@/components/TesterScreen';
+import { Action, Card, usePageColors } from '@/components/TesterOnboarding';
 import { useTesterSession } from '@/contexts/TesterSessionContext';
+import { useTesterConfig } from '@/contexts/TesterConfigContext';
 import { getEnvironmentEndpoints } from '@/constants/environments';
-import { splitDisplayName, useTestUsers } from '@/contexts/TestUsersContext';
+import { useTestUsers } from '@/contexts/TestUsersContext';
 
 export default function SettingsScreen() {
-  const { userName } = useEncatch();
-  const { changeSetup, setupValues } = useTesterSession();
-  const { getUser } = useTestUsers();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const { userName, isInitialized } = useEncatch();
+  const { changeSetup, setupValues, isAnonymous } = useTesterSession();
+  const { formId, interceptorFormId } = useTesterConfig();
+  const { getUser, users } = useTestUsers();
+  const colors = usePageColors();
   const endpoints = getEnvironmentEndpoints(setupValues.environment);
-
   const profile = userName ? getUser(userName) : undefined;
-  const { firstName, lastName } = splitDisplayName(profile?.displayName ?? '');
-
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-
-      {userName ? (
-        <View style={styles.profileBox}>
-          <Text style={[styles.profileLine, { color: colors.text }]}>
-            Username: {userName}
-          </Text>
-          {(firstName || lastName) && (
-            <Text style={[styles.profileLine, { color: colors.tabIconDefault }]}>
-              Name: {[firstName, lastName].filter(Boolean).join(' ')}
-            </Text>
-          )}
-          {profile?.email ? (
-            <Text style={[styles.profileLine, { color: colors.tabIconDefault }]}>
-              Email: {profile.email}
-            </Text>
-          ) : null}
-          <Pressable
-            style={({ pressed }) => [styles.linkButton, pressed && styles.buttonPressed]}
-            onPress={() =>
-              router.push({
-                pathname: '/edit-profile',
-                params: { username: userName },
-              })
-            }>
-            <Text style={styles.linkButtonText}>Edit profile</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>SDK setup</Text>
-        <Text style={[styles.sectionDescription, { color: colors.tabIconDefault }]}>
-          Environment: {setupValues.environment.toUpperCase()} ({endpoints.apiBaseUrl})
-        </Text>
-        <Text style={[styles.sectionDescription, { color: colors.tabIconDefault }]}>
-          Clears the saved API key and form id, then returns to the setup screen so you can enter
-          new values before sign-in.
-        </Text>
-        <Pressable
-          style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-          onPress={() => {
-            void changeSetup();
-          }}>
-          <Text style={styles.secondaryButtonText}>Change API key & setup</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.linkButton, pressed && styles.buttonPressed]}
-          onPress={() => router.replace('/(auth)/login')}>
-          <Text style={styles.linkButtonText}>Go to login screen</Text>
-        </Pressable>
+  const [details, setDetails] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState('');
+  const clear = async () => {
+    if (clearing) return;
+    setClearing(true); setError('');
+    try { await changeSetup(); }
+    catch { setError('Could not clear setup. Please try again.'); }
+    finally { setClearing(false); }
+  };
+  const title = [styles.title, { color: colors.text }];
+  const hint = [styles.body, { color: colors.muted }];
+  const row = (label: string, value: string) => <View style={[styles.valueRow, { borderBottomColor: colors.border }]}><Text style={[styles.meta, { color: colors.muted }]}>{label}</Text><Text selectable style={[styles.value, { color: colors.text }]}>{value}</Text></View>;
+  return <TesterScreen contentStyle={styles.stack}>
+    <View style={styles.intro}>
+      <Text style={[styles.eyebrow, { color: colors.accent }]}>ENCATCH SDK TESTER</Text>
+      <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Settings</Text>
+      <Text style={hint}>Manage your SDK connection and choose who you test as.</Text>
+    </View>
+    <Card>
+      <View style={styles.headingRow}>
+        <Text accessibilityRole="header" style={title}>SDK setup</Text>
+        <Text style={[styles.badge, { backgroundColor: colors.selected, color: colors.accent }]}>{endpoints.label}</Text>
       </View>
-    </ScrollView>
-  );
+      <Text style={[styles.meta, { color: isInitialized ? colors.success : colors.warning }]}>{isInitialized ? '● SDK initialized' : '○ SDK starting'}</Text>
+      {row('API key', setupValues.apiKey ? 'Configured · ••••••••' : 'Not configured')}
+      {row('Feedback configuration ID', formId.trim() || 'Not selected')}
+      {row('Interceptor form ID', interceptorFormId.trim() || 'Not configured')}
+      <Action title="Change SDK setup" disabled={clearing} onPress={() => router.navigate('/(auth)/login')} />
+      <Text style={hint}>Edit the environment, API key, or form IDs in SDK setup.</Text>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: details }} onPress={() => setDetails(!details)} style={styles.linkButton}><Text style={[styles.link, { color: colors.accent }]}>{details ? '− Hide connection details' : '+ Connection details'}</Text></Pressable>
+      {details && <View style={[styles.connection, { backgroundColor: colors.background }]}>
+        {row('API endpoint', endpoints.apiBaseUrl)}
+        {row('Form host', endpoints.webHost)}
+      </View>}
+    </Card>
+    <Card>
+      <Text accessibilityRole="header" style={title}>Test user</Text>
+      <View style={styles.userRow}>
+        <View style={[styles.avatar, { backgroundColor: colors.selected }]}><Text style={[styles.avatarText, { color: colors.accent }]}>{isAnonymous ? 'A' : (profile?.displayName || userName || 'U').slice(0, 1).toUpperCase()}</Text></View>
+        <View style={styles.flex}>
+          <Text style={[styles.userName, { color: colors.text }]}>{isAnonymous ? 'Anonymous session' : profile?.displayName || userName || 'Test user'}</Text>
+          <Text style={[styles.meta, { color: colors.muted }]}>{isAnonymous ? 'No user identified' : 'Identified user'}</Text>
+        </View>
+      </View>
+      {!isAnonymous && !!userName && row('Username', userName)}
+      {!isAnonymous && !!profile?.email && row('Email', profile.email)}
+      <Action title="Change test user" disabled={clearing} onPress={() => router.navigate('/(auth)/test-user')} />
+      <Text style={hint}>Choose a saved user, generate a new one, or continue anonymously.</Text>
+      <Text style={[styles.meta, { color: colors.muted }]}>{users.length} saved {users.length === 1 ? 'profile' : 'profiles'} on this device</Text>
+      {!isAnonymous && !!userName && <Action title="Edit current profile" secondary disabled={clearing} onPress={() => router.push({ pathname: '/edit-profile', params: { username: userName } })} />}
+    </Card>
+    <Card>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: resetOpen }} disabled={clearing} onPress={() => setResetOpen(!resetOpen)} style={styles.linkButton}><Text style={[styles.link, { color: colors.muted }]}>{resetOpen ? '− Reset saved setup' : '+ Reset saved setup'}</Text></Pressable>
+      {resetOpen && <>
+        <Text style={hint}>Remove saved connection settings and reset SDK state. Saved test-user profiles are kept.</Text>
+        <Action title={clearing ? 'Clearing setup…' : 'Clear SDK setup'} secondary busy={clearing} onPress={() => void clear()} />
+      </>}
+      {!!error && <Text accessibilityLiveRegion="polite" style={[styles.body, { color: colors.error }]}>{error}</Text>}
+    </Card>
+  </TesterScreen>;
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  profileBox: {
-    width: '100%',
-    marginBottom: 8,
-  },
-  profileLine: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  linkButton: {
-    alignSelf: 'flex-start',
-    marginTop: 12,
-  },
-  linkButtonText: {
-    color: '#3B82F6',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  separator: {
-    marginVertical: 28,
-    height: 1,
-    width: '100%',
-  },
-  section: {
-    width: '100%',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  sectionDescription: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#64748B',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  buttonPressed: {
-    opacity: 0.8,
-  },
-  secondaryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  stack: { gap: 20 }, intro: { gap: 12 }, flex: { flex: 1, minWidth: 0 },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
+  heading: { fontSize: 26, fontWeight: '700' }, title: { fontSize: 18, fontWeight: '700', flexShrink: 1 },
+  body: { fontSize: 14, lineHeight: 22 }, meta: { fontSize: 12, lineHeight: 19 },
+  headingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, fontSize: 12, fontWeight: '600' },
+  valueRow: { gap: 5, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  value: { fontSize: 14, lineHeight: 22, flexShrink: 1 },
+  connection: { padding: 14, borderRadius: 10, gap: 12 },
+  linkButton: { minHeight: 44, justifyContent: 'center', paddingVertical: 10 },
+  link: { fontSize: 14, fontWeight: '600' },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  userName: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  avatar: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 22, fontWeight: '700' },
 });
